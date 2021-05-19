@@ -10,19 +10,24 @@ import CheckoutWrapper from './CheckoutWrapper'
 import CheckoutContainer from './CheckoutContainer'
 import { Locks } from './Locks'
 import { CallToAction } from './CallToAction'
-import { SwitchPayment } from './SwitchPayment'
+import Buttons from '../buttons/lock'
 import Loading from '../Loading'
+import WalletPicker from './WalletPicker'
+import CheckoutMethod from './CheckoutMethod'
+import CryptoCheckout from './CryptoCheckout'
+import CardCheckout from './CardCheckout'
+import CardConfirmationCheckout from './CardConfirmationCheckout'
+import NewAccountCheckout from './NewAccountCheckout'
 import { pageTitle } from '../../../constants'
+import { EnjoyYourMembership } from './EnjoyYourMembership'
+import LogInSignUp from '../LogInSignUp'
 
 import {
   UserInfo,
   TransactionInfo,
 } from '../../../hooks/useCheckoutCommunication'
 import { PaywallConfigContext } from '../../../contexts/PaywallConfigContext'
-import AuthenticateButton from '../buttons/AuthenticateButton'
 import { AuthenticationContext } from '../Authenticate'
-import LogInSignUp from '../LogInSignUp'
-import { ActionButton } from '../buttons/ActionButton'
 
 interface CheckoutProps {
   emitCloseModal: () => void
@@ -68,15 +73,16 @@ export const Checkout = ({
   emitUserInfo,
   web3Provider, // provider passed from the website which implements the paywall so we can support any wallet!
 }: CheckoutProps) => {
-  const { authenticate, account } = useContext(AuthenticationContext)
+  const { authenticate, account, isUnlockAccount } = useContext(
+    AuthenticationContext
+  )
 
   const paywallConfig = useContext(PaywallConfigContext)
   const config = useContext(ConfigContext)
-  const [loginShown, showLogin] = useState(false)
-  const [activePayment, setActivePayment] = useState<string>('Default')
-  const [fiatAvailable, setFiatAvailable] = useState(false)
+  const [state, setState] = useState('')
+  const [cardDetails, setCardDetails] = useState(null)
   const [existingKeys, setHasKey] = useReducer(keysReducer, {})
-  const [focus, setFocus] = useState('')
+  const [selectedLock, selectLock] = useState<any>(null)
 
   if (!paywallConfig || !config) {
     return <Loading />
@@ -84,11 +90,6 @@ export const Checkout = ({
 
   const requiredNetwork = paywallConfig.network
   const allowClose = !(!paywallConfig || paywallConfig.persistentCheckout)
-
-  const changeActivePayment = (type: string) => {
-    setActivePayment(type)
-  }
-
   const handleTransactionInfo = (info: any) => {
     emitTransactionInfo(info)
   }
@@ -99,16 +100,17 @@ export const Checkout = ({
         address,
       })
     })
-    showLogin(false)
+    if (selectedLock) {
+      if (!provider.isUnlock) {
+        setState('crypto-checkout')
+      } else {
+        setState('card-purchase')
+      }
+    } else {
+      setState('')
+    }
   }
-
-  const handleFiatAvailable = () => {
-    setFiatAvailable(true)
-  }
-
   const web3Service = new Web3Service(config.networks)
-
-  const showPaymentOptions = !focus && account && fiatAvailable
 
   let content
   let paywallCta = 'default'
@@ -120,88 +122,154 @@ export const Checkout = ({
     paywallCta = 'expired'
   }
 
-  if (!loginShown) {
+  const connectWallet = () => {
+    setState('wallet-picker')
+  }
+
+  const onSelected = (lock: any) => {
+    // Here we should set the state based on the account
+    selectLock(lock)
+    if (!account) {
+      setState('pick-method')
+    } else if (account && !isUnlockAccount) {
+      setState('crypto-checkout')
+    } else {
+      setState('card-purchase')
+    }
+  }
+
+  const lockProps = selectedLock && paywallConfig.locks[selectedLock.address]
+  if (state === 'login') {
+    content = (
+      <LogInSignUp
+        network={1} // We don't actually need a network here really.
+        embedded
+        login
+        onProvider={onProvider}
+      />
+    )
+  } else if (state === 'wallet-picker') {
+    content = (
+      <WalletPicker
+        onProvider={(provider) => {
+          if (selectedLock) {
+            setState('crypto-checkout')
+          }
+          onProvider(provider)
+        }}
+      />
+    )
+  } else if (state === 'crypto-checkout') {
+    content = (
+      <CryptoCheckout
+        paywallConfig={paywallConfig}
+        emitTransactionInfo={handleTransactionInfo}
+        network={lockProps?.network || requiredNetwork}
+        name={lockProps?.name || ''}
+        lock={selectedLock}
+        emitCloseModal={emitCloseModal}
+        setCardPurchase={() => setState('card-purchase')}
+      />
+    )
+  } else if (state === 'card-purchase') {
+    content = (
+      <CardCheckout
+        handleCard={(card, token) => {
+          setCardDetails({ card, token })
+          setState('confirm-card-purchase')
+        }}
+        network={lockProps?.network || requiredNetwork}
+      />
+    )
+  } else if (state === 'confirm-card-purchase') {
+    content = (
+      <CardConfirmationCheckout
+        emitTransactionInfo={handleTransactionInfo}
+        lock={selectedLock}
+        network={lockProps?.network || requiredNetwork}
+        name={lockProps?.name || ''}
+        emitCloseModal={emitCloseModal}
+        {...cardDetails}
+      />
+    )
+  } else if (state === 'new-account') {
+    content = (
+      <NewAccountCheckout
+        showLogin={() => setState('login')}
+        network={lockProps?.network || requiredNetwork}
+        onAccountCreated={(unlockProvider, { card, token }) => {
+          setCardDetails({ card, token })
+          onProvider(unlockProvider)
+          setState('confirm-card-purchase')
+        }}
+      />
+    )
+  } else if (state === 'pick-method') {
+    content = (
+      <CheckoutMethod
+        network={lockProps?.network || requiredNetwork}
+        showLogin={() => setState('login')}
+        lock={selectedLock}
+        onWalletSelected={() => setState('wallet-picker')}
+        onNewAccountSelected={() => setState('new-account')}
+      />
+    )
+  } else {
     content = (
       <>
-        <PaywallLogoWrapper>
-          {paywallConfig.icon ? (
-            <PublisherLogo alt="Publisher Icon" src={paywallConfig.icon} />
-          ) : (
-            <RoundedLogo size="56px" />
-          )}
-        </PaywallLogoWrapper>
-
-        {!focus && (
-          <CallToAction
-            state={paywallCta}
-            callToAction={paywallConfig.callToAction}
-          />
-        )}
-
-        {!account && <Prompt>Select your authentication method</Prompt>}
-
-        {account && !hasValidMembership(existingKeys) && (
-          <Prompt>Ready to make payment</Prompt>
-        )}
-
-        {account && hasValidMembership(existingKeys) && (
-          <Prompt>Thank you for your trust!</Prompt>
-        )}
+        <Locks
+          network={requiredNetwork}
+          locks={paywallConfig.locks}
+          setHasKey={setHasKey}
+          onSelected={onSelected}
+        />
 
         {!account && (
-          <AuthenticateButton
-            web3Provider={web3Provider}
-            showAccount={fiatAvailable}
-            onProvider={onProvider}
-            login={showLogin}
-          />
+          <>
+            <Prompt>Already a member? Access with your</Prompt>
+            <CheckoutButtons>
+              <Buttons.Account as="button" onClick={() => setState('login')} />
+              <Buttons.Wallet as="button" onClick={connectWallet} />
+            </CheckoutButtons>
+          </>
         )}
-        <Locks
-          handleFiatAvailable={handleFiatAvailable}
-          network={requiredNetwork}
-          setFocus={setFocus}
-          focus={focus}
-          locks={paywallConfig.locks}
-          activePayment={activePayment}
-          emitTransactionInfo={handleTransactionInfo}
-          setHasKey={setHasKey}
-        />
-        {showPaymentOptions && (
-          <SwitchPayment
-            setActivePayment={changeActivePayment}
-            activePayment={activePayment}
-            paymentOptions={['Credit Card']}
-          />
-        )}
+
         {hasValidMembership(existingKeys) && (
-          <BackToSiteButton onClick={emitCloseModal}>
-            Back to the site
-          </BackToSiteButton>
+          <EnjoyYourMembership emitCloseModal={emitCloseModal} />
         )}
       </>
     )
   }
 
-  if (loginShown) {
-    content = (
-      <LogInSignUp
-        network={requiredNetwork}
-        embedded
-        onCancel={() => showLogin(false)}
-        login
-        onProvider={onProvider}
-      />
-    )
+  const back = () => {
+    setState('')
+    selectLock(null)
   }
 
   return (
     <Web3ServiceContext.Provider value={web3Service}>
       <CheckoutContainer close={emitCloseModal}>
-        <CheckoutWrapper allowClose={allowClose} hideCheckout={emitCloseModal}>
+        <CheckoutWrapper
+          back={back}
+          allowClose={allowClose}
+          hideCheckout={emitCloseModal}
+        >
           <Head>
             <title>{pageTitle('Checkout')}</title>
           </Head>
 
+          <PaywallLogoWrapper>
+            {paywallConfig.icon ? (
+              <PublisherLogo alt="Publisher Icon" src={paywallConfig.icon} />
+            ) : (
+              <RoundedLogo size="56px" />
+            )}
+          </PaywallLogoWrapper>
+
+          <CallToAction
+            state={paywallCta}
+            callToAction={paywallConfig.callToAction}
+          />
           {content}
         </CheckoutWrapper>
       </CheckoutContainer>
@@ -218,21 +286,18 @@ const PaywallLogoWrapper = styled.div`
   }
 `
 
-const Spacer = styled.div`
-  height: 25px;
+const CheckoutButtons = styled.div`
+  width: 50%;
+  display: flex;
+  justify-content: space-around;
+  small {
+    display: inline-block;
+  }
 `
 
 const Prompt = styled.p`
   font-size: 16px;
-  font-weight: bold;
+  color: var(--dimgrey);
 `
 
 const PublisherLogo = styled.img``
-
-const BackToSiteButton = styled(ActionButton).attrs({
-  fontColor: 'var(--green)',
-  color: 'none',
-})`
-  width: 240px;
-  height: 48px;
-`

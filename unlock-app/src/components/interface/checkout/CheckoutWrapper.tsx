@@ -8,6 +8,7 @@ interface WrapperProps {
   hideCheckout: (...args: any[]) => any
   allowClose: boolean
   bgColor?: string
+  back: () => void | null
 }
 
 interface WrapperStyleProps {
@@ -16,6 +17,7 @@ interface WrapperStyleProps {
 
 const CheckoutWrapper: React.FunctionComponent<WrapperProps> = ({
   children,
+  back,
   hideCheckout,
   allowClose = true,
 }: React.PropsWithChildren<WrapperProps>) => {
@@ -37,7 +39,7 @@ const CheckoutWrapper: React.FunctionComponent<WrapperProps> = ({
         ''
       )}
       {children}
-      <CheckoutFooter />
+      <CheckoutFooter back={back} />
     </Wrapper>
   )
 }

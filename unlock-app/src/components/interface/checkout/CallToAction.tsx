@@ -31,4 +31,5 @@ const Message = styled.p`
   text-align: left;
   font-size: 13px;
   width: 100%;
+  min-height: 30px; // This avoids jankiness
 `

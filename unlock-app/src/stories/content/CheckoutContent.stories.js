@@ -1,10 +1,12 @@
 import React from 'react'
 import { storiesOf } from '@storybook/react'
 import CheckoutContent from '../../components/content/CheckoutContent'
+import { WedlockServiceContext } from '../../contexts/WedlocksContext'
 import { ConfigContext } from '../../utils/withConfig'
 import ProviderContext from '../../contexts/ProviderContext'
 import Authenticate from '../../components/interface/Authenticate'
 import configure from '../../config'
+import WedlockService from '../../services/wedlockService'
 
 const render = (paywallConfig) => {
   const config = configure()
@@ -21,11 +23,15 @@ const render = (paywallConfig) => {
 
   return (
     <ConfigContext.Provider value={config}>
-      <ProviderContext.Provider value={{ provider, setProvider }}>
-        <Authenticate>
-          <CheckoutContent query={query} />
-        </Authenticate>
-      </ProviderContext.Provider>
+      <WedlockServiceContext.Provider
+        value={new WedlockService(config.services.wedlocks.host)}
+      >
+        <ProviderContext.Provider value={{ provider, setProvider }}>
+          <Authenticate>
+            <CheckoutContent query={query} />
+          </Authenticate>
+        </ProviderContext.Provider>
+      </WedlockServiceContext.Provider>
     </ConfigContext.Provider>
   )
 }
@@ -102,8 +108,7 @@ storiesOf('Checkout', module)
       callToAction: {},
       network: 4,
       locks: {
-        '0x771e09a5bfef4c4b85d796a112d49e839c98d9da': {},
-        '0x3a892c7014cd05418e48ae516a6a9e700ccb3e39': {},
+        '0x61e9210b61C254b28cc7Aea472E496339D2D3265': {},
       },
     })
   })

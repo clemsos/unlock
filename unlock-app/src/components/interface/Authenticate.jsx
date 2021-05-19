@@ -100,6 +100,7 @@ export const Authenticate = ({
     encryptedPrivateKey,
     walletService,
     connectProvider,
+    isUnlockAccount,
   } = useProvider(config)
 
   const authenticate = (provider, callback) => {
@@ -115,7 +116,14 @@ export const Authenticate = ({
 
   return (
     <AuthenticationContext.Provider
-      value={{ account, network, email, encryptedPrivateKey, authenticate }}
+      value={{
+        account,
+        network,
+        email,
+        encryptedPrivateKey,
+        authenticate,
+        isUnlockAccount,
+      }}
     >
       <WalletServiceContext.Provider value={walletService}>
         <Providers

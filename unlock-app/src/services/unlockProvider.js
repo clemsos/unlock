@@ -23,8 +23,6 @@ export default class UnlockProvider extends providers.JsonRpcProvider {
     this.isUnlock = true
   }
 
-  // You should be able to just pass the action for
-  // GOT_ENCRYPTED_PRIVATE_KEY_PAYLOAD into here
   async connect({ key, password, emailAddress }) {
     this.wallet = await getAccountFromPrivateKey(key, password)
     this.wallet.connect(this)

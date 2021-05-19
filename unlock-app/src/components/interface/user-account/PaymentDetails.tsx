@@ -18,24 +18,38 @@ import {
 import configure from '../../../config'
 import { countries } from '../../../utils/countries'
 
-const { stripeApiKey } = configure()
-const stripePromise = loadStripe(stripeApiKey)
-
 interface PaymentDetailsProps {
-  saveCard: (stripeToken: string) => any
+  saveCard: (stripeToken: string, card: any, data: any) => any
   onCancel?: () => any
+  renderChildren?: (props: any) => React.ReactNode
+  renderError?: (props: any) => React.ReactNode
 }
 
-export const PaymentDetails = ({ saveCard, onCancel }: PaymentDetailsProps) => {
+export const PaymentDetails = ({
+  saveCard,
+  onCancel,
+  renderChildren,
+  renderError,
+}: PaymentDetailsProps) => {
+  const { stripeApiKey } = configure()
+  const stripePromise = loadStripe(stripeApiKey, {})
+
   return (
     <Elements stripe={stripePromise}>
-      <Form onCancel={onCancel} saveCard={saveCard} />
+      <Form
+        onCancel={onCancel}
+        saveCard={saveCard}
+        renderChildren={renderChildren}
+        renderError={renderError}
+      />
     </Elements>
   )
 }
 
 PaymentDetails.defaultProps = {
   onCancel: null,
+  renderChildren: null,
+  renderError: null,
 }
 
 const cardElementOptions: StripeCardElementOptions = {
@@ -45,11 +59,18 @@ const cardElementOptions: StripeCardElementOptions = {
 }
 
 interface FormProps {
-  saveCard: (stripeToken: string) => any
+  saveCard: (stripeToken: string, card: any, data: any) => any
   onCancel?: () => any
+  renderChildren?: (props: any) => React.ReactNode
+  renderError?: (props: any) => React.ReactNode
 }
 
-export const Form = ({ saveCard, onCancel }: FormProps) => {
+export const Form = ({
+  saveCard,
+  onCancel,
+  renderChildren,
+  renderError,
+}: FormProps) => {
   const { register, handleSubmit } = useForm()
   const stripe = useStripe()
   const elements = useElements()
@@ -60,9 +81,8 @@ export const Form = ({ saveCard, onCancel }: FormProps) => {
       address_country: data.address_country,
       name: data.name,
     })
-
     if (result.token) {
-      saveCard(result.token.id)
+      saveCard(result.token.id, result.token.card, data)
     }
   }
 
@@ -80,9 +100,11 @@ export const Form = ({ saveCard, onCancel }: FormProps) => {
           </option>
         ))}
       </Select>
+      {renderChildren && renderChildren({ register })}
       <Button type="submit" disabled={!stripe}>
         Submit
       </Button>
+      {renderError && <Error>{renderError({})}</Error>}
       {onCancel && <NeutralButton onClick={onCancel}>Cancel</NeutralButton>}
     </StyledForm>
   )
@@ -90,5 +112,12 @@ export const Form = ({ saveCard, onCancel }: FormProps) => {
 
 Form.defaultProps = {
   onCancel: null,
+  renderChildren: null,
+  renderError: null,
 }
+
 const StyledForm = styled.form``
+
+const Error = styled.p`
+  color: var(--red);
+`

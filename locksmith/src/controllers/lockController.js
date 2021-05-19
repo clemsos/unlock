@@ -1,7 +1,9 @@
-import { logger } from 'express-winston'
 import stripeOperations from '../operations/stripeOperations'
 import LockOwnership from '../data/lockOwnership'
 import { evaluateLockOwnership } from './metadataController'
+import * as Normalizer from '../utils/normalizer'
+
+const logger = require('../logger')
 
 const lockOperations = require('../operations/lockOperations')
 const lockIconUtils = require('../utils/lockIcon').default
@@ -58,8 +60,8 @@ const connectStripe = async (req, res) => {
       res.sendStatus(401)
     } else {
       const links = await stripeOperations.connectStripe(
-        req.signee,
-        lockAddress,
+        Normalizer.ethereumAddress(req.signee),
+        Normalizer.ethereumAddress(lockAddress),
         chain,
         baseUrl
       )

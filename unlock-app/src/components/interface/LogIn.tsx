@@ -1,23 +1,17 @@
 // eslint-disable-next-line no-unused-vars
-import React, { FormEvent, useState, useReducer, useContext } from 'react'
+import React, { FormEvent, useState, useReducer } from 'react'
 import styled from 'styled-components'
-// eslint-disable-next-line no-unused-vars
-// eslint-disable-next-line no-unused-vars
 import { LoadingButton } from './user-account/styles'
-import UnlockProvider from '../../services/unlockProvider'
-import { StorageService } from '../../services/storageService'
-import { ConfigContext } from '../../utils/withConfig'
+import { useAccount } from '../../hooks/useAccount'
 
 interface LogInProps {
-  showSignup: () => void
   onCancel?: () => void
   onProvider: (provider: any) => void
   network: number
 }
 
-const LogIn = ({ showSignup, onProvider, onCancel, network }: LogInProps) => {
-  const config = useContext(ConfigContext)
-  const storageService = new StorageService(config.networks[network].locksmith)
+const LogIn = ({ onProvider, onCancel, network }: LogInProps) => {
+  const { retrieveUserAccount } = useAccount('', network)
   const [loginState, dispatch] = useReducer(
     (state: any, action: any) => {
       if (action.change) {
@@ -52,21 +46,13 @@ const LogIn = ({ showSignup, onProvider, onCancel, network }: LogInProps) => {
     dispatch({
       change: [{ name: 'error', value: '' }],
     })
-    const key = await storageService.getUserPrivateKey(emailAddress)
-
-    // TODO: Allow users to change the provider's network from UI
-    // What network do we chose here?
-    const unlockProvider = new UnlockProvider(config.networks[network])
 
     try {
-      await unlockProvider.connect({
-        key,
-        emailAddress,
-        password,
-      })
+      const unlockProvider = await retrieveUserAccount(emailAddress, password)
       onProvider(unlockProvider)
     } catch (e) {
       // TODO: password isn't the only thing that can go wrong here...
+      console.error(e)
       dispatch({
         change: [
           { name: 'error', value: 'Wrong password... Please try again' },
@@ -92,11 +78,11 @@ const LogIn = ({ showSignup, onProvider, onCancel, network }: LogInProps) => {
 
   return (
     <Container>
-      <Heading>Log In to Your Account</Heading>
       <Form onSubmit={handleSubmit}>
         <Label htmlFor="emailInput">Email Address</Label>
         <Input
           name="emailAddress"
+          autoComplete="username"
           id="emailInput"
           type="email"
           placeholder="Enter your email"
@@ -109,6 +95,7 @@ const LogIn = ({ showSignup, onProvider, onCancel, network }: LogInProps) => {
           id="passwordInput"
           type="password"
           placeholder="Enter your password"
+          autoComplete="current-password"
           onChange={handleInputChange}
         />
         <br />
@@ -117,9 +104,6 @@ const LogIn = ({ showSignup, onProvider, onCancel, network }: LogInProps) => {
         {submitButton()}
       </Form>
       <Description>
-        Don&#39;t have an account?{' '}
-        <LinkButton onClick={showSignup}>Sign up here.</LinkButton>
-        <br />
         {onCancel && <LinkButton onClick={onCancel}>Cancel.</LinkButton>}
       </Description>
     </Container>
