@@ -93,11 +93,13 @@ contract('CodeRequiredHook', (accounts) => {
   it('can not buy with an incorrect code provided', async () => {
     // Calculate an incorrect code
     const code = 'WRONG'
-    const codePK = web3.eth.abi.encodeParameters(
-      ['address', 'bytes32'],
-      // By including the lock address in the codePK, we can have
-      // codes reused for multiple locks without that being visible on-chain
-      [lock.address, web3.utils.keccak256(code)]
+    const codePK = web3.eth.accounts.hashMessage(
+      web3.eth.abi.encodeParameters(
+        ['address', 'bytes32'],
+        // By including the lock address in the codePK, we can have
+        // codes reused for multiple locks without that being visible on-chain
+        [lock.address, web3.utils.keccak256(code)]
+      )
     )
     const wrongcodeAccount = web3.eth.accounts.privateKeyToAccount(codePK)
     const messageToSign = web3.utils.keccak256(
