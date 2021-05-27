@@ -3,7 +3,7 @@ const { reverts } = require('truffle-assertions')
 
 const CodeRequiredHook = artifacts.require('CodeRequiredHook.sol')
 
-contract('CodeRequiredHook', accounts => {
+contract('CodeRequiredHook', (accounts) => {
   const lockCreator = accounts[1]
   const keyBuyer = accounts[5]
   let lock
@@ -21,12 +21,15 @@ contract('CodeRequiredHook', accounts => {
 
     // Calculate the code account
     const code = 'super secret hard to guess code goes here'
-    const codePK = web3.eth.abi.encodeParameters(
-      ['address', 'bytes32'],
-      // By including the lock address in the codePK, we can have
-      // codes reused for multiple locks without that being visible on-chain
-      [lock.address, web3.utils.keccak256(code)]
+    const codePK = web3.eth.accounts.hashMessage(
+      web3.eth.abi.encodeParameters(
+        ['address', 'bytes32'],
+        // By including the lock address in the codePK, we can have
+        // codes reused for multiple locks without that being visible on-chain
+        [lock.address, web3.utils.keccak256(code)]
+      )
     )
+
     codeAccount = web3.eth.accounts.privateKeyToAccount(codePK)
 
     // Create the hook contract with that code
@@ -53,8 +56,8 @@ contract('CodeRequiredHook', accounts => {
   it('reverts if adding a zero code', async () => {
     await reverts(
       hookContract.addCodes(lock.address, [constants.ZERO_ADDRESS], {
-      from: lockCreator,
-    }),
+        from: lockCreator,
+      }),
       'INVALID_CODE'
     )
   })
@@ -62,8 +65,8 @@ contract('CodeRequiredHook', accounts => {
   it('reverts if removing a zero code', async () => {
     await reverts(
       hookContract.removeCodes(lock.address, [constants.ZERO_ADDRESS], {
-      from: lockCreator,
-    }),
+        from: lockCreator,
+      }),
       'INVALID_CODE'
     )
   })
